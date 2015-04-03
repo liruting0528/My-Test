@@ -1,0 +1,81 @@
+# -*- coding: utf-8 -*-
+import weibo
+from weibo import APIClient
+import webbrowser
+import urllib
+from pymongo import MongoClient
+import json
+import datetime
+#import time
+#import os
+#import sched
+import threading
+
+
+
+class WeiboData(object):
+
+    client = None
+    def __init__(self):
+        pass
+
+    def getAuth(self,APP_KEY,APP_SECRET,CALLBACK_URL):
+        self.client = APIClient(app_key = APP_KEY,app_secret=APP_SECRET,redirect_uri=CALLBACK_URL)
+        url = self.client.get_authorize_url()
+        webbrowser.open_new(url)
+        code = raw_input("input the code: ").strip()
+        r = self.client.request_access_token(code,CALLBACK_URL)
+        access_token = r.access_token
+        expires_in = r.expires_in
+        self.client.set_access_token(access_token,expires_in)
+    
+
+  
+    def getData(self):
+        results = self.client.statuses.home_timeline.get()
+        fp_text = results['statuses'][0]['text']
+        fp_pic  =results['statuses'][1]['pic_urls']
+        fp_id = results['statuses'][1]['id']
+        fp_time = results['statuses'][1]['created_at']
+        post ={'text':fp_text.encode('utf-8'),'id':fp_id,'pic_url':fp_pic,'weibo_time':fp_time,'man_date':datetime.datetime.now()}
+        print post
+        return post
+        g =threading.Timer(300.0,getData)
+        g.start()
+
+
+            
+        
+
+
+class MongoClientSingleton(object):
+	'''通过重载实例化函数__new__'''
+	client = None
+	def __new__(cls,*args,**kwds):
+		if cls.client is None:
+                    
+			cls.client = MongoClient('mongodb://lirt:' + 'good123' + '@121.40.96.196')
+		return cls.client
+         
+
+class TweetHandler:
+	def __init__(self):
+		pass
+	
+	# tweets is a list of tweet dictionaries
+	def insert_tweets(self,tweets):
+	    client = MongoClientSingleton()
+	    db = client.li_test
+	    db.tweets.insert(tweets)
+    
+	
+		
+if __name__ == '__main__':
+    user =WeiboData()
+    user.getAuth('1576757304','8b1b3610fefbf81210705cb42cb98ba0','http://bigbang.sinaapp.com')
+    data = user.getData()
+    #print type(data)
+    info = TweetHandler()
+    info.insert_tweets(data)
+    timer = threading.Timer(300.0,user.getData)
+    timer.start()
